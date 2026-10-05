@@ -296,8 +296,24 @@ function cardPedido(it, op) {
   obs.addEventListener('change', () => salva(it, { observacao: obs.value.trim() }, true));
 
   card.append(el('div', { class: 'controles' }, sStatus, sCat, obs));
-  card.append(el('div', { class: 'small muted', style: 'margin-top:6px;font-family:var(--mono);font-size:11px', text: it.id }));
+  const btExcluir = el('button', { type: 'button', class: 'bt-excluir', title: 'Apagar este pedido (ex.: repetido ou enviado por engano)', onclick: () => excluir(it, btExcluir) }, '🗑 Excluir');
+  card.append(el('div', { class: 'rodape-pedido' }, el('span', { class: 'id', text: it.id }), btExcluir));
   return card;
+}
+
+async function excluir(it, bt) {
+  const resumo = it.descricao.length > 80 ? it.descricao.slice(0, 80) + '…' : it.descricao;
+  if (!confirm('Excluir de vez este pedido?\n\n' + rotuloLoja(it.loja, it.lojaNome) + '\n"' + resumo + '"\n\nAs fotos dele vão para a lixeira do Drive.')) return;
+  bt.disabled = true; bt.textContent = 'Excluindo…';
+  try {
+    await api('excluir', { senha: st.senha, id: it.id });
+    st.itens = st.itens.filter(x => x.id !== it.id);
+    desenha();
+    toast('Pedido excluído.');
+  } catch (e) {
+    bt.disabled = false; bt.textContent = '🗑 Excluir';
+    toast('Não excluiu: ' + e.message, true);
+  }
 }
 
 async function salva(it, campos, semRedesenho) {

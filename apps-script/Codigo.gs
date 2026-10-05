@@ -63,6 +63,7 @@ function doPost(e) {
       case 'login':     checaSenha_(req); res = {}; break;
       case 'listar':    checaSenha_(req); res = listar_(); break;
       case 'atualizar': checaSenha_(req); res = atualizar_(req); break;
+      case 'excluir':   checaSenha_(req); res = excluir_(req); break;
       default: throw new Error('Ação desconhecida.');
     }
     res.ok = true;
@@ -179,6 +180,32 @@ function atualizar_(req) {
       cont++;
     });
     return { atualizados: cont };
+  } finally {
+    trava.releaseLock();
+  }
+}
+
+// apaga pedidos (linhas) e manda as fotos deles para a lixeira do Drive
+function excluir_(req) {
+  const ids = Array.isArray(req.ids) ? req.ids.map(String) : [String(req.id || '')];
+  const trava = LockService.getScriptLock();
+  trava.waitLock(20000);
+  try {
+    const aba = aba_();
+    const n = aba.getLastRow();
+    if (n < 2) return { excluidos: 0 };
+    const vals = aba.getRange(2, 1, n - 1, 11).getValues();
+    let cont = 0;
+    // de baixo para cima, para as linhas de cima não mudarem de posição
+    for (let i = vals.length - 1; i >= 0; i--) {
+      if (ids.indexOf(String(vals[i][0])) < 0) continue;
+      String(vals[i][10] || '').split(',').filter(String).forEach(function (fid) {
+        try { Drive.Files.update({ trashed: true }, fid); } catch (e) { /* foto já apagada */ }
+      });
+      aba.deleteRow(i + 2);
+      cont++;
+    }
+    return { excluidos: cont };
   } finally {
     trava.releaseLock();
   }
