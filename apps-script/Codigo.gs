@@ -44,7 +44,7 @@ function configurar() {
   if (SENHA_PAINEL && SENHA_PAINEL !== 'TROCAR_AQUI') {
     PropertiesService.getScriptProperties().setProperty('SENHA', SENHA_PAINEL);
   }
-  return 'Configurado. Pasta de fotos: ' + pastaFotos_().getUrl();
+  return 'Configurado. Pasta de fotos: ' + urlPasta_(pastaFotos_());
 }
 
 /* ------------------------------------------------------------------ */
@@ -95,9 +95,9 @@ function enviar_(req) {
       const bytes = Utilities.base64Decode(String(f.dados || ''));
       if (!bytes.length || bytes.length > MAX_BYTES_FOTO) return;
       const nome = 'Loja' + loja + '_' + carimbo + '_' + slug_(categoria) + '_' + (i + 1) + '.jpg';
-      const arq = pasta.createFile(Utilities.newBlob(bytes, tipo, nome));
-      arq.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      ids.push(arq.getId());
+      const arq = Drive.Files.create({ name: nome, parents: [pasta], mimeType: tipo }, Utilities.newBlob(bytes, tipo, nome));
+      Drive.Permissions.create({ role: 'reader', type: 'anyone' }, arq.id);
+      ids.push(arq.id);
     });
   }
 
@@ -131,7 +131,7 @@ function enviar_(req) {
 
 function listar_() {
   const aba = aba_();
-  const links = { planilha: SpreadsheetApp.getActive().getUrl(), pasta: pastaFotos_().getUrl() };
+  const links = { planilha: SpreadsheetApp.getActive().getUrl(), pasta: urlPasta_(pastaFotos_()) };
   const n = aba.getLastRow();
   if (n < 2) return { itens: [], links: links };
   const vals = aba.getRange(2, 1, n - 1, COLUNAS.length).getValues();
@@ -203,22 +203,37 @@ function aba_() {
   return aba;
 }
 
+// As pastas são criadas pelo serviço avançado do Drive, que só enxerga
+// os arquivos criados por este código (permissão restrita drive.file).
+const TIPO_PASTA = 'application/vnd.google-apps.folder';
+
+function pastaExiste_(id) {
+  if (!id) return false;
+  try { return !Drive.Files.get(id, { fields: 'id,trashed' }).trashed; } catch (e) { return false; }
+}
+
 function pastaFotos_() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('PASTA_FOTOS');
-  if (id) {
-    try { return DriveApp.getFolderById(id); } catch (e) { /* recria abaixo */ }
-  }
-  const pasta = DriveApp.createFolder(NOME_PASTA_FOTOS);
-  props.setProperty('PASTA_FOTOS', pasta.getId());
-  return pasta;
+  if (pastaExiste_(id)) return id;
+  const f = Drive.Files.create({ name: NOME_PASTA_FOTOS, mimeType: TIPO_PASTA });
+  props.setProperty('PASTA_FOTOS', f.id);
+  return f.id;
 }
 
 function pastaLoja_(loja, nome) {
-  const raiz = pastaFotos_();
+  const props = PropertiesService.getScriptProperties();
+  const chave = 'PASTA_LOJA_' + loja;
+  const id = props.getProperty(chave);
+  if (pastaExiste_(id)) return id;
   const titulo = 'Loja ' + ('0' + loja).slice(-2) + (nome ? ' - ' + nome : '');
-  const it = raiz.getFoldersByName(titulo);
-  return it.hasNext() ? it.next() : raiz.createFolder(titulo);
+  const f = Drive.Files.create({ name: titulo, mimeType: TIPO_PASTA, parents: [pastaFotos_()] });
+  props.setProperty(chave, f.id);
+  return f.id;
+}
+
+function urlPasta_(id) {
+  return 'https://drive.google.com/drive/folders/' + id;
 }
 
 function limpa_(v, max) {
