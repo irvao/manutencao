@@ -11,6 +11,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="css/estilo.css">
+<style>
+/* botão de excluir pedido */
+.rodape-pedido{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px}
+.rodape-pedido .id{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.bt-excluir{background:none;border:1px solid transparent;border-radius:8px;color:var(--muted);font-size:13px;padding:4px 8px;cursor:pointer}
+.bt-excluir:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.bt-excluir:disabled{opacity:.6;cursor:default}
+</style>
 </head>
 <body>
 
